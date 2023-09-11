@@ -1,0 +1,51 @@
+#!/bin/bash
+
+export LC_ALL=C
+
+if [[ "$(whoami)" != "root" ]]; then
+    echo "Restarting as root..."
+    sudo ${0} ${@}
+    exit ${?}
+fi
+
+# Calculate swap size
+mem_gb=$(free -g | grep Mem | awk '{print $2}')
+swap_mb=$(echo "($mem_gb + sqrt($mem_gb)) * 1024" | bc)
+
+# Set the root device
+fs_uuid=$(findmnt / -o UUID -n)
+
+# Temporarily mount your btrfs filesystem to a folder, create a subvolume and mount it to the root filesystem.
+mount -m -U $fs_uuid /mnt/system-${fs_uuid}
+btrfs subvolume create /mnt/system-${fs_uuid}/@swap
+umount /mnt/system-${fs_uuid}
+rm -r /mnt/system-${fs_uuid}
+mount -m -U ${fs_uuid} -o subvol=@swap,nodatacow /swap
+
+# Create a swapfile and set permissions/attributes
+touch /swap/swapfile
+chattr +C /swap/swapfile
+dd if=/dev/zero of=/swap/swapfile bs=1MiB count=$swap_mb status=progress
+chmod 0600 /swap/swapfile
+mkswap /swap/swapfile
+
+# Add 2 entries and enable the swapfile in /etc/fstab
+umount /swap
+echo -e "\nUUID=$fs_uuid\t/swap\tbtrfs\tsubvol=@swap,nodatacow,noatime,nospace_cache\t0\t0" >> /etc/fstab
+echo -e "/swap/swapfile\tnone\tswap\tdefaults\t0\t0" >> /etc/fstab
+systemctl daemon-reload
+mount /swap
+swapon -a
+
+# Configure hibernation
+swp_uuid=$(findmnt -no UUID -T /swap/swapfile)
+curl -s "https://raw.githubusercontent.com/osandov/osandov-linux/master/scripts/btrfs_map_physical.c" > bmp.c
+gcc -O2 -o bmp bmp.c
+swp_offset=$(echo "$(./bmp /swap/swapfile | egrep "^0\s+" | cut -f9) / $(getconf PAGESIZE)" | bc)
+echo -e "\nGRUB_CMDLINE_LINUX_DEFAULT+=\" resume=UUID=$swp_uuid resume_offset=$swp_offset \"" >> /etc/default/grub
+echo -e "\nHOOKS+=\" resume \"" >> /etc/mkinitcpio.conf
+rm -f bmp bmp.c
+
+# Update initcpio and grub
+mkinitcpio -P
+update-grub

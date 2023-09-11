@@ -1,0 +1,41 @@
+#!/bin/sh
+
+export LC_ALL=C
+
+siat_dir="Projects/Vagrant/siat_vagrant"
+win_usr_dir="/media/Windows/Users"
+ext_siat_dir="/media/Archivio/${siat_dir}"
+
+if [ -d "${ext_siat_dir}" ]; then
+    dst_siat_dir="${ext_siat_dir}"
+elif [ -d "${win_usr_dir}" ]; then
+    usr_dir=$(ls "${win_usr_dir}" | grep -i "${USER}")
+
+    if [[ "${usr_dir}" != "" ]] && [ -d "${win_usr_dir}/${usr_dir}/${siat_dir}" ]; then
+        dst_siat_dir="${win_usr_dir}/${usr_dir}/${siat_dir}"
+    fi
+fi
+
+if [ ! -d "${dst_siat_dir}" ]; then
+   echo "Unable to find siat_vagrant dir"
+   exit 1
+fi
+
+cd "${dst_siat_dir}"
+
+if [[ "${1}" == "init" ]]; then
+    "./init.sh" ${@:2}
+elif [[ "${1}" == "install" ]]; then
+    for install in $(ls | grep "^install" | grep ".sh$"); do
+        if [[ "${install}" == *"${2}"* ]]; then
+            "./${install}" ${@:3}
+        fi
+    done
+elif [[ "${1}" == "done" ]]; then
+    notify-send -a 'Vagrant' -i "$HOME/Immagini/Vagrant.png" 'Successfully started!'
+elif [[ "${1}" == "forward" ]]; then
+    forward-vagrant http
+    forward-vagrant xdebug
+else
+    vagrant ${@}
+fi

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+export LC_ALL=C
+
+systemctl list-unit-files $1 --state=enabled | grep enabled | awk '{print $1}' | sort

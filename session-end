@@ -1,0 +1,5 @@
+#!/bin/sh
+
+source ~/.matrixdj96rc
+
+vms-savestate

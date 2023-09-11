@@ -1,0 +1,31 @@
+#!/bin/sh
+
+export LC_ALL=C
+
+IFS=$'\n'
+
+# Virtual machine IDs
+vms=$(VBoxManage list runningvms | sed -n 's/.*\({.*}$\)/\1/p')
+
+for vm in ${vms}; do
+    # Virtual machine name
+    name=$(VBoxManage list runningvms | grep ${vm} | sed 's/ {.*}//')
+    VBoxManage controlvm "${vm}" savestate >/dev/null 2>&1
+    for index in {0..120}; do
+        running=$(VBoxManage list runningvms | grep ${vm})
+        if [ "${running}" = "" ]; then
+            echo "VM ${name} successfully saved"
+            break
+        else
+            echo "VM ${name} is still running..."
+            sleep 0.5
+        fi
+    done
+done
+
+# VMWare machine files
+vms=$(vmrun list | sed -n 's/\(.*\.vmx$\)/\1/p')
+
+for vm in ${vms}; do
+    vmrun suspend "${vm}" soft >/dev/null 2>&1
+done

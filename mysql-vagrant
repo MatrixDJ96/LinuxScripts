@@ -1,0 +1,37 @@
+#!/bin/bash
+
+export LC_ALL=C
+
+args=()
+
+host="127.0.0.1"
+port="3306"
+user="root"
+nopassword="0"
+
+for arg in ${@}; do
+    if [[ "${arg}" == "--host="* ]]; then
+        host=$(echo ${arg} | cut -d '=' -f 2)
+    elif [[ "${arg}" == "--port="* ]]; then
+        port=$(echo ${arg} | cut -d '=' -f 2)
+    elif [[ "${arg}" == "--user="* ]]; then
+        user=$(echo ${arg} | cut -d '=' -f 2)
+    elif [[ "${arg}" != "--result-file="* ]]; then
+        args[${#args[@]}]=${arg}
+        if [[ "${arg}" == "-V" ]] || [[ "${arg}" == "--version" ]] || [[ "${arg}" == "--help" ]]; then
+            nopassword="1"
+        fi
+    fi
+done
+
+if [[ "${nopassword}" == "0" ]]; then
+    password="$(zenity --password --title="$(basename ${0})")"
+fi
+
+echo "Host ${host} | Port ${port} | User ${user} | Password ${password}"
+
+if [ -t 0 ]; then
+    ssh -q -t -R ${port}:localhost:${port} vagrant.local "mysql --user=${user} --password=${password} --host=${host} --port=${port} ${args[@]}" < /dev/stdin
+else
+    ssh -q -t -R ${port}:localhost:${port} vagrant.local "mysql --user=${user} --password=${password} --host=${host} --port=${port} ${args[@]}"
+fi
