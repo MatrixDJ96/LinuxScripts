@@ -1,0 +1,9 @@
+#!/bin/sh
+
+. ~/.matrixdj96rc
+
+sleep 10
+
+broadcast-rgb &
+add-ssh-keys &
+php-projects &
